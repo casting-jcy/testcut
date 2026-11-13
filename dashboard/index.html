@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JCY Casting – Test Cut Dashboard</title>
+<link rel="icon" href="https://casting-jcy.github.io/testcut/icon.png">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --bg: #f2f4f7; --card: #ffffff; --ink: #1d2733; --muted: #667085; --line: #e3e7ee;
+    --brand: #1f3b5c; --ok: #15803d; --ok-bg: #dcfce7; --ng: #c81e1e; --ng-bg: #fde8e8;
+    --warn: #b45309; --warn-bg: #fff4d6; --sel: #1f6feb; --sel-bg: #e7f0ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 14px 16px 40px; }
+  header.top { background: var(--brand); color: #fff; }
+  header.top .wrap { padding-top: 12px; padding-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  header.top h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+  header.top h1 small { display: block; font-weight: 400; font-size: 12px; opacity: .8; }
+  header.top a.log { color: #fff; border: 1px solid rgba(255,255,255,.6); border-radius: 8px; padding: 7px 12px; text-decoration: none; font-weight: 600; white-space: nowrap; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .chip { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .chip.on { border-color: var(--sel); background: var(--sel-bg); color: var(--sel); }
+  select, input { font: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+  .period { color: var(--muted); font-size: 13px; margin: -4px 0 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+  .kpi .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  .kpi .v { font-size: 24px; font-weight: 800; margin-top: 2px; }
+  .kpi .s { font-size: 12px; color: var(--muted); }
+  .kpi.bad .v { color: var(--ng); } .kpi.good .v { color: var(--ok); } .kpi.warn .v { color: var(--warn); }
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 14px; overflow-x: auto; }
+  .tab { background: none; border: 0; padding: 10px 14px; font: inherit; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+  .tab.on { color: var(--brand); border-bottom-color: var(--brand); }
+  .card { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.08); margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; color: var(--brand); }
+  .card h2 small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .grid .card { margin-bottom: 0; }
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: var(--brand); color: #fff; text-align: left; padding: 7px 8px; font-size: 12px; white-space: nowrap; }
+  th.sort { cursor: pointer; } th.sort:after { content: ' ⇅'; opacity: .5; }
+  td { border-bottom: 1px solid var(--line); padding: 7px 8px; font-size: 13px; vertical-align: top; }
+  tr:hover td { background: #fafbfc; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .tag.ACC { color: var(--ok); background: var(--ok-bg); } .tag.REJ { color: var(--ng); background: var(--ng-bg); }
+  .late { background: #fde68a; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .ng { color: var(--ng); font-weight: 700; } .muted { color: var(--muted); }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; cursor: pointer; color: var(--brand); }
+  .bar { display: grid; grid-template-columns: 90px 1fr 110px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+  .bar .t { height: 14px; background: #eef1f5; border-radius: 7px; overflow: hidden; }
+  .bar .f { height: 100%; border-radius: 7px; }
+  .bar .n { text-align: right; white-space: nowrap; }
+  .cols { display: flex; align-items: flex-end; gap: 4px; height: 160px; border-bottom: 1px solid var(--line); padding-top: 18px; }
+  .cols .c { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; height: 100%; position: relative; }
+  .cols .c .b { width: 70%; max-width: 34px; background: var(--ng); border-radius: 4px 4px 0 0; }
+  .cols .c .p { font-size: 10px; color: var(--muted); }
+  .xl { display: flex; gap: 4px; font-size: 10px; color: var(--muted); }
+  .xl span { flex: 1; text-align: center; overflow: hidden; white-space: nowrap; }
+  .mcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .mc { background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.08); border-left: 5px solid var(--ok); }
+  .mc.bad { border-left-color: var(--ng); }
+  .mc .h { display: flex; justify-content: space-between; align-items: baseline; }
+  .mc .h b { font-size: 17px; } .mc .y { font-size: 20px; font-weight: 800; }
+  .spec { border: 1px solid var(--brand); background: #f3f6fa; border-radius: 8px; padding: 8px 10px; font-size: 12px; white-space: pre-line; }
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; }
+  .msg { text-align: center; padding: 60px 16px; color: var(--muted); font-size: 15px; }
+  .msg.err { color: var(--ng); }
+  /* record popup */
+  .ov { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 20; display: flex; align-items: flex-start; justify-content: center; padding: 20px 12px; overflow: auto; }
+  .dlg { background: #fff; border-radius: 14px; width: 100%; max-width: 900px; padding: 16px; position: relative; }
+  .dlg .x { position: absolute; top: 10px; right: 10px; }
+  .dlg h3 { margin: 0 0 4px; color: var(--brand); padding-right: 70px; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 14px; margin: 10px 0; font-size: 13px; }
+  .kv div span { display: block; font-size: 11px; color: var(--muted); }
+  .phs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
+  .ph { font-size: 12px; }
+  .ph .im { width: 100%; aspect-ratio: 4 / 3; background: #eef1f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); cursor: zoom-in; }
+  .ph .im img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+  .ph.map { grid-column: 1 / -1; } .ph.map .im { aspect-ratio: auto; min-height: 160px; } .ph.map img { height: auto; }
+  .sec { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  #zoom { position: fixed; inset: 0; background: #fff; z-index: 30; overflow: auto; }
+  #zoom img { width: 100%; max-width: none; display: block; }
+  #zoom .btn { position: fixed; top: 10px; right: 10px; background: var(--brand); color: #fff; border: 0; }
+  .hidden { display: none !important; }
+  @media (max-width: 600px) { .bar { grid-template-columns: 70px 1fr 90px; } .kpi .v { font-size: 20px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1>JCY Casting – Test Cut Dashboard<small id="sub">Read-only · porosity, unmill &amp; dimension results with NG photos</small></h1>
+  <a class="log" href="https://casting-jcy.github.io/testcut" target="_blank">＋ Log Test Cut</a>
+</div></header>
+
+<div class="wrap">
+  <div id="msg" class="msg">Loading dashboard…</div>
+  <div id="main" class="hidden">
+    <div class="filters">
+      <b class="muted" style="font-size:13px">Commodity</b>
+      <span id="fCom"></span>
+    </div>
+    <div class="filters">
+      <b class="muted" style="font-size:13px">Period</b>
+      <span id="presets"></span>
+      <label class="muted" style="font-size:13px">Prod date <input type="date" id="fDate"></label>
+    </div>
+    <div class="period" id="period"></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="tabBody"></div>
+  </div>
+</div>
+
+<div id="rec" class="ov hidden" onclick="if (event.target === this) closeRec()"><div class="dlg" id="recBody"></div></div>
+<div id="zoom" class="hidden" onclick="this.classList.add('hidden')"><button class="btn">Close ✕</button><img id="zoomImg" alt=""></div>
+
+<script>
+// ───────── helpers ─────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// The same page runs in two places:
+//  • GitHub Pages (casting-jcy.github.io/testcut/dashboard/) – data is fetched from the web app WITHOUT Google
+//    sign-in cookies, so it works even when the viewer is signed into several Google accounts;
+//  • inside Apps Script (old links …/exec?page=dash) – uses google.script.run.
+const API = 'https://script.google.com/macros/s/AKfycbxXLgrpCr4M75eJlvSqHlP4BD5ebHTee-YTLogEQzcEs9eQm0bK37zkhybR5SujmTPLSg/exec';
+const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+async function apiGet(params) {
+  const r = await fetch(API + '?' + new URLSearchParams(params).toString(), { credentials: 'omit', redirect: 'follow' });
+  if (!r.ok) throw new Error('Server error (' + r.status + '). Please try again.');
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+const call = (fn, ...a) => {
+  if (IN_GAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...a));
+  if (fn === 'apiDashData') return apiGet({ api: 'dash', k: a[0], com: a[1].commodity || '', from: a[1].from, to: a[1].to }).then(j => j.text);
+  if (fn === 'apiDashPhoto') return apiGet({ api: 'photo', k: a[0], id: a[1], kind: a[2], i: a[3] }).then(j => j.src);
+  return Promise.reject(new Error('Unknown request'));
+};
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtD = ymd => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || ''); return m ? m[3] + '-' + MON[+m[2] - 1] + '-' + m[1] : (ymd || ''); };
+const addDays = (ymd, n) => { const d = new Date(ymd + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const nat = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+const pct = (n, d) => d ? (Math.round(n / d * 1000) / 10).toFixed(1) + '%' : '–';
+const uniq = a => a.filter((v, i) => v !== '' && v != null && a.indexOf(v) === i);
+const locList = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+
+// same rules as the email / PDF (Code.gs rejPcs_ / ngStats_)
+const rejPcs = r => { const q = Number(r.qty) || 0; return r.dim === 'Fail' ? q : Math.min(q, (Number(r.poroQty) || 0) + (Number(r.unmillQty) || 0)); };
+function stats(l) {
+  const sum = k => l.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  const qty = sum('qty'), poro = sum('poroQty'), unm = sum('unmillQty');
+  const rej = l.reduce((a, r) => a + rejPcs(r), 0), dim = l.filter(r => r.dim === 'Fail').length;
+  return { n: l.length, qty, acc: qty - rej, rej, poro, unm, dim, nv: l.filter(r => !r.verifiedBy).length,
+    rejRec: l.filter(r => r.lotStatus === 'REJ').length };
+}
+// zone colours – same rule as the app and the PDF
+const ZONE_COLORS = ['#e00000', '#1f6feb', '#15803d', '#d97706', '#9333ea', '#0891b2', '#db2777', '#4d7c0f'];
+const zoneColor = (locs, z) => { const i = locList(locs).indexOf(z); return i < 0 ? '' : ZONE_COLORS[i % ZONE_COLORS.length]; };
+
+// ───────── state ─────────
+const D = { key: '', com: '', preset: 'date', date: '', from: '', to: '', data: null, tab: 'logs',
+  f: { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All' }, sort: { k: 'date', dir: 1 }, memo: {}, limit: 100 };
+const PAGE = 100;   // log rows drawn at a time ("Show more" adds the next 100)
+const PRESETS = [['y', 'Yesterday'], ['7d', '7 days'], ['1m', '1 month'], ['6m', '6 months']];
+
+function start(p) {
+  D.key = p.k || '';
+  D.com = p.com || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) { D.preset = 'date'; D.date = p.date; }
+  else D.preset = 'y';
+  if (!D.key) return showMsg('This dashboard link is incomplete. Please open it from the daily Test Cut email.', true);
+  load();
+}
+if (IN_GAS) google.script.url.getLocation(loc => start(loc.parameter || {}));
+else start(Object.fromEntries(new URLSearchParams(location.search)));
+
+function showMsg(t, err) { $('msg').textContent = t; $('msg').className = 'msg' + (err ? ' err' : ''); $('msg').classList.remove('hidden'); $('main').classList.add('hidden'); }
+
+function rangeFor(today, yday) {
+  if (D.preset === 'date' && D.date) return [D.date, D.date];
+  if (D.preset === '7d') return [addDays(today, -6), today];
+  if (D.preset === '1m') return [addDays(today, -29), today];
+  if (D.preset === '6m') return [addDays(today, -182), today];
+  return [yday, yday];
+}
+
+async function load() {
+  // "today" from the browser for the first call; the server's answer corrects it
+  const n = new Date(), local = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+  const t = D.data ? D.data.today : local;
+  const y = D.data ? D.data.yesterday : addDays(t, -1);
+  [D.from, D.to] = rangeFor(t, y);
+  if (D.data) { $('period').textContent = 'Loading…'; } else showMsg('Loading dashboard…');
+  try {
+    // periods already loaded in the last 2 minutes are shown straight away (no new server call)
+    const ck = D.com + '|' + D.from + '|' + D.to;
+    const hit = D.memo[ck];
+    if (hit && Date.now() - hit.at < 120000) D.data = hit.data;
+    else {
+      const d = JSON.parse(await call('apiDashData', D.key, { commodity: D.com, from: D.from, to: D.to }));
+      // compact rows → record objects
+      d.records = d.rows.map(a => { const o = {}; d.fields.forEach((f, i) => { o[f] = a[i]; }); return o; });
+      delete d.rows;
+      D.data = d;
+      D.memo[d.commodity + '|' + d.from + '|' + d.to] = { at: Date.now(), data: d };
+    }
+    // the daily email opens yesterday's production date: show it as the "Yesterday" chip
+    if (D.preset === 'date' && D.date === D.data.yesterday) D.preset = 'y';
+    D.limit = PAGE;
+    D.com = D.data.commodity;
+    $('msg').classList.add('hidden'); $('main').classList.remove('hidden');
+    render();
+  } catch (e) { showMsg((e && e.message) || String(e), true); }
+}
+
+// ───────── render ─────────
+function render() {
+  const d = D.data;
+  // one button per commodity (from Master_Model) – new commodities appear automatically
+  $('fCom').innerHTML = d.commodities.map(c => '<button class="chip' + (c === D.com ? ' on' : '') + '" data-c="' + esc(c) + '">' + esc(c) + '</button>').join(' ');
+  $('fCom').querySelectorAll('.chip').forEach(b => b.onclick = () => { if (b.dataset.c === D.com) return; D.com = b.dataset.c; resetFilters(); load(); });
+  $('sub').textContent = D.com + ' · read-only · porosity, unmill & dimension results with NG photos';
+  $('presets').innerHTML = PRESETS.map(([k, l]) => '<button class="chip' + (D.preset === k ? ' on' : '') + '" data-p="' + k + '">' + l + '</button>').join(' ');
+  $('presets').querySelectorAll('.chip').forEach(b => b.onclick = () => { D.preset = b.dataset.p; resetFilters(); load(); });
+  $('fDate').value = D.preset === 'date' ? D.date : '';
+  $('fDate').max = d.today;
+  $('fDate').onchange = e => { if (!e.target.value) return; D.preset = 'date'; D.date = e.target.value; resetFilters(); load(); };
+  $('period').textContent = 'Production date ' + (d.from === d.to ? fmtD(d.from) : fmtD(d.from) + ' to ' + fmtD(d.to)) +
+    ' · Day 07:00–19:00 + Night 19:00–07:00 · ' + d.records.length + ' record(s)';
+
+  const s = stats(d.records);
+  const k = (l, v, sub, cls) => '<div class="kpi ' + (cls || '') + '"><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
+  $('kpis').innerHTML =
+    k('Test Cut Qty', s.qty, s.n + ' record(s)') +
+    k('ACC pcs', s.acc, pct(s.acc, s.qty) + ' of tested', 'good') +
+    k('REJ pcs', s.rej, s.rejRec + ' REJ record(s)', s.rej ? 'bad' : '') +
+    k('Porosity NG', pct(s.poro, s.qty), s.poro + ' pcs', s.poro ? 'bad' : '') +
+    k('Unmill NG', pct(s.unm, s.qty), s.unm + ' pcs', s.unm ? 'bad' : '') +
+    k('Dimension NG', pct(s.dim, s.n), s.dim + ' fail record(s)', s.dim ? 'bad' : '') +
+    k('Not verified', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good');
+
+  const tabs = [['logs', 'Inspection Logs (' + d.records.length + ')'], ['ana', 'Defect & Cavity Analytics'], ['mc', 'Machine Summary']];
+  $('tabs').innerHTML = tabs.map(([t, l]) => '<button class="tab' + (D.tab === t ? ' on' : '') + '" data-t="' + t + '">' + esc(l) + '</button>').join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { D.tab = b.dataset.t; render(); });
+  $('tabBody').innerHTML = !d.records.length ? '<div class="card empty">No test cut records for this period.</div>'
+    : D.tab === 'logs' ? logsHtml() : D.tab === 'ana' ? analyticsHtml() : machineHtml();
+  if (D.tab === 'logs' && d.records.length) wireLogs();
+}
+// Inspection Logs opens on REJ records (the ones to look at); "All status" shows everything
+function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All' }; D.limit = PAGE; }
+
+const modelOrder = () => D.data.models.map(m => m.code);
+const mi = c => { const i = modelOrder().indexOf(c); return i < 0 ? 999 : i; };
+
+// ───────── tab 1: inspection logs ─────────
+function filtered() {
+  const f = D.f, q = f.q.trim().toLowerCase();
+  return D.data.records.filter(r =>
+    (f.status === 'All' || r.lotStatus === f.status) && (f.code === 'All' || r.code === f.code) &&
+    (f.mc === 'All' || r.machine === f.mc) && (f.cav === 'All' || r.cavity === f.cav) && (f.shift === 'All' || r.shift === f.shift) &&
+    (!q || [r.id, r.code, r.model, r.machine, r.cavity, r.lotNo, r.operatorName, r.remarks].join(' ').toLowerCase().indexOf(q) >= 0));
+}
+function sorted(list) {
+  const { k, dir } = D.sort;
+  const key = {
+    date: r => r.prodDate + (r.shift === 'Day' ? '0' : '1') + String(mi(r.code)).padStart(3, '0') + r.machine + r.cavity,
+    model: r => String(mi(r.code)).padStart(3, '0') + r.code, mc: r => r.machine + r.cavity, qty: r => String(Number(r.qty) || 0).padStart(6, '0'),
+    status: r => r.lotStatus, ng: r => String(rejPcs(r)).padStart(6, '0')
+  }[k];
+  return list.slice().sort((a, b) => dir * nat(key(a), key(b)));
+}
+function logsHtml() {
+  const recs = D.data.records, f = D.f;
+  const opt = (id, label, vals, cur) => '<select id="' + id + '"><option value="All">' + label + '</option>' +
+    vals.map(v => '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>';
+  const list = sorted(filtered());
+  const th = (k, l) => '<th class="sort" data-k="' + k + '">' + l + '</th>';
+  return '<div class="card">' +
+    '<div class="filters">' +
+      '<input id="lq" placeholder="Search record, model, MC, lot, operator…" style="flex:1 1 220px" value="' + esc(f.q) + '">' +
+      opt('lStatus', 'All status', ['ACC', 'REJ'], f.status) +
+      opt('lCode', 'All models', uniq(recs.map(r => r.code)).sort((a, b) => mi(a) - mi(b)), f.code) +
+      opt('lMc', 'All machines', uniq(recs.map(r => r.machine)).sort(nat), f.mc) +
+      opt('lCav', 'All cavities', uniq(recs.map(r => r.cavity)).sort(nat), f.cav) +
+      opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
+    '</div>' +
+    '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot</th>' +
+      th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + th('ng', 'REJ pcs') +
+      '<th>Verified</th><th>Operator</th><th></th></tr>' +
+    (list.length ? list.slice(0, D.limit).map(r => {
+      const ngTxt = (yn, n, locs) => yn === 'Yes' ? '<span class="ng">' + esc(n) + ' pc</span> @ ' + esc(locs) : '<span class="muted">–</span>';
+      const nPh = (r.poroN || 0) + (r.unmillN || 0);
+      return '<tr><td>' + fmtD(r.prodDate) + (r.late ? ' <span class="late">LATE</span>' : '') + '<div class="muted">' + esc(r.shift) + '</div></td>' +
+        '<td><b>' + esc(r.code) + '</b></td><td>MC ' + esc(r.machine) + '<div class="muted">' + esc(r.cavity) + '</div></td>' +
+        '<td>' + esc(r.lotNo) + '</td><td>' + esc(r.qty) + '</td><td>' + ngTxt(r.poro, r.poroQty, r.poroLocs) + '</td>' +
+        '<td>' + ngTxt(r.unmill, r.unmillQty, r.unmillLocs) + '</td>' +
+        '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : 'Pass') + '</td>' +
+        '<td><span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span></td>' +
+        '<td>' + (rejPcs(r) ? '<span class="ng">' + rejPcs(r) + '</span>' : 0) + '</td>' +
+        '<td>' + (r.verifiedBy ? esc(r.verifiedBy) : '<span class="muted">–</span>') + '</td><td>' + esc(r.operatorName) + '</td>' +
+        '<td><button class="btn" data-id="' + esc(r.id) + '">' + (nPh ? '📷 View' : 'View') + '</button></td></tr>';
+    }).join('') : '<tr><td colspan="13" class="empty">' + (D.f.status === 'REJ' ? '✅ No REJ records in this period. Choose <b>All status</b> to see all records.' : 'No records match these filters.') + '</td></tr>') +
+    '</table></div>' + (list.length > D.limit ? '<div style="text-align:center;margin-top:10px"><button class="btn" id="more">Show more (' + (list.length - D.limit) + ' more)</button></div>' : '') +
+    '<div class="muted" style="margin-top:8px;font-size:12px">Showing ' + Math.min(D.limit, list.length) + ' of ' + list.length + ' matching · ' + recs.length + ' record(s) in period · tap 📷 View to see NG photos</div></div>' +
+    (D.data.spec ? '<div class="spec"><b>Porosity spec (' + esc(D.com) + ')</b>\n' + esc(D.data.spec) + '</div>' : '');
+}
+function wireLogs() {
+  const set = (id, k) => { const el = $(id); if (el) el.onchange = e => { D.f[k] = e.target.value; D.limit = PAGE; render(); }; };
+  set('lStatus', 'status'); set('lCode', 'code'); set('lMc', 'mc'); set('lCav', 'cav'); set('lShift', 'shift');
+  const q = $('lq');
+  if (q) q.oninput = () => { D.f.q = q.value; D.limit = PAGE; clearTimeout(q._t); q._t = setTimeout(() => { render(); const n = $('lq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 350); };
+  document.querySelectorAll('th.sort').forEach(t => t.onclick = () => {
+    D.sort = { k: t.dataset.k, dir: D.sort.k === t.dataset.k ? -D.sort.dir : 1 }; render(); });
+  document.querySelectorAll('button[data-id]').forEach(b => b.onclick = () => openRec(b.dataset.id));
+  const more = $('more'); if (more) more.onclick = () => { D.limit += PAGE; render(); };
+}
+
+// ───────── record popup with photos ─────────
+function openRec(id) {
+  const r = D.data.records.find(x => x.id === id); if (!r) return;
+  const kv = (l, v) => '<div><span>' + l + '</span>' + v + '</div>';
+  let h = '<button class="btn x" onclick="closeRec()">Close ✕</button>' +
+    '<h3>' + esc(r.code) + ' · MC ' + esc(r.machine) + ' · ' + esc(r.cavity) + ' <span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span></h3>' +
+    '<div class="muted">' + esc(r.model) + ' · Record ' + esc(r.id) + '</div>' +
+    '<div class="kv">' + kv('Production date', fmtD(r.prodDate) + ' · ' + esc(r.shift) + (r.late ? ' <span class="late">LATE</span>' : '')) +
+      kv('Lot / Basket', esc(r.lotNo) || '–') + kv('Test cut qty', esc(r.qty) + ' pcs') + kv('REJ pcs', rejPcs(r)) +
+      kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : 'Pass') +
+      kv('Operator', esc(r.operatorName)) + kv('Verified by', esc(r.verifiedBy) || '–') + kv('Submitted', esc(r.submittedAt)) +
+      (r.remarks ? kv('Remarks', esc(r.remarks)) : '') + '</div>';
+  const jobs = [];
+  [['poro', 'Porosity', r.poro, r.poroQty, r.poroLocs, r.poroN, r.poroZones, r.poroMap, 'P'],
+   ['unmill', 'Unmill', r.unmill, r.unmillQty, r.unmillLocs, r.unmillN, r.unmillZones, r.unmillMap, 'U']]
+    .forEach(([kind, label, yn, qty, locs, n, zones, hasMap, p]) => {
+      if (yn !== 'Yes') return;
+      const hasZones = (zones || []).some(Boolean);
+      h += '<div class="sec"><b class="ng">' + label + '</b> ' + esc(qty) + ' pc @ ' +
+        locList(locs).map(z => (hasZones ? '<span style="color:' + zoneColor(locs, z) + '">■</span> ' : '') + esc(z)).join(', ') + '<div class="phs">';
+      if (hasMap) { const el = 'im_' + kind + 'Map'; h += '<div class="ph map"><div class="im" id="' + el + '">Loading map…</div>Location map</div>'; jobs.push([el, kind + 'Map', 0]); }
+      for (let i = 0; i < (n || 0); i++) {
+        const z = zones && zones[i], col = z ? zoneColor(locs, z) : '';
+        const el = 'im_' + kind + '_' + i;
+        h += '<div class="ph"><div class="im" id="' + el + '"' + (col ? ' style="outline:4px solid ' + col + ';outline-offset:-4px"' : '') + '>Loading photo…</div>' +
+          (z ? '<span style="color:' + col + '">■</span> <b>Zone ' + esc(z) + '</b> · ' : 'Photo ') + p + (i + 1) + '</div>';
+        jobs.push([el, kind, i]);
+      }
+      h += '</div></div>';
+    });
+  if (!jobs.length) h += '<div class="sec muted">No porosity / unmill NG – no photos for this record.</div>';
+  $('recBody').innerHTML = h;
+  $('rec').classList.remove('hidden');
+  D.openId = id;
+  // load photos 2 at a time
+  let next = 0;
+  const run = () => {
+    if (next >= jobs.length || D.openId !== id) return;
+    const [el, kind, i] = jobs[next++];
+    call('apiDashPhoto', D.key, id, kind, i).then(src => {
+      const box = $(el); if (!box || D.openId !== id) return;
+      box.innerHTML = '<img alt="">'; box.firstChild.src = src; box.onclick = () => { $('zoomImg').src = src; $('zoom').classList.remove('hidden'); };
+    }).catch(e => { const box = $(el); if (box) box.textContent = 'Photo not available'; }).then(run);
+  };
+  run(); run();
+}
+function closeRec() { $('rec').classList.add('hidden'); D.openId = null; }
+
+// ───────── tab 2: analytics ─────────
+function bars(rows, color) {
+  const max = Math.max(1e-9, ...rows.map(x => x.v));
+  return rows.map(x => '<div class="bar"><b title="' + esc(x.title || x.l) + '">' + esc(x.l) + '</b><div class="t"><div class="f" style="width:' +
+    (x.v / max * 100) + '%;background:' + (x.c || color) + '"></div></div><div class="n">' + x.t + '</div></div>').join('');
+}
+function analyticsHtml() {
+  const recs = D.data.records;
+  const byCode = {};
+  recs.forEach(r => (byCode[r.code] = byCode[r.code] || []).push(r));
+  const codes = Object.keys(byCode).sort((a, b) => mi(a) - mi(b) || nat(a, b));
+  const sc = codes.map(c => Object.assign({ code: c, model: byCode[c][0].model }, stats(byCode[c])));
+  const rate = (key, base, color, label) => '<div class="card"><h2>' + label + ' <small>by model</small></h2>' +
+    bars(sc.map(s => ({ l: s.code, title: s.model, v: base === 'n' ? (s.n ? s[key] / s.n : 0) : (s.qty ? s[key] / s.qty : 0),
+      t: (base === 'n' ? pct(s[key], s.n) : pct(s[key], s.qty)) + ' <span class="muted">(' + s[key] + (base === 'n' ? ' rec' : ' pc') + ')</span>' })), color) + '</div>';
+
+  // defect zones per model
+  let zones = '';
+  codes.forEach(c => {
+    const cnt = {};
+    byCode[c].forEach(r => {
+      if (r.poro === 'Yes') locList(r.poroLocs).forEach(z => { const k = 'P|' + z; cnt[k] = (cnt[k] || 0) + 1; });
+      if (r.unmill === 'Yes') locList(r.unmillLocs).forEach(z => { const k = 'U|' + z; cnt[k] = (cnt[k] || 0) + 1; });
+    });
+    const pts = (D.data.models.find(m => m.code === c) || {}).points || [];
+    const rows = Object.keys(cnt).map(k => ({ type: k[0], z: k.slice(2), v: cnt[k] }))
+      .sort((a, b) => b.v - a.v || pts.indexOf(a.z) - pts.indexOf(b.z));
+    if (rows.length) zones += '<div style="margin-top:8px"><b>' + esc(c) + '</b>' +
+      bars(rows.map(x => ({ l: (x.type === 'P' ? 'Poro ' : 'Unmill ') + x.z, v: x.v, c: x.type === 'P' ? '#d97706' : '#9333ea',
+        t: x.v + ' record(s)' })), '#d97706') + '</div>';
+  });
+
+  // cavity comparison
+  const byCav = {};
+  recs.forEach(r => (byCav[r.cavity] = byCav[r.cavity] || []).push(r));
+  const cav = Object.keys(byCav).sort(nat).map(c => {
+    const s = stats(byCav[c]);
+    return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><b>Cavity ' + esc(c) + '</b><span>' +
+      s.qty + ' pcs · <b class="' + (s.rej ? 'ng' : '') + '">' + pct(s.acc, s.qty) + ' ACC</b></span></div>' +
+      '<div class="t" style="height:12px;background:var(--ng);border-radius:6px;overflow:hidden;margin-top:4px"><div style="height:100%;width:' +
+      (s.qty ? s.acc / s.qty * 100 : 100) + '%;background:var(--ok)"></div></div>' +
+      '<div class="muted" style="font-size:12px">' + s.acc + ' ACC pcs · ' + s.rej + ' REJ pcs · porosity ' + s.poro + ' · unmill ' + s.unm + ' · dim fail ' + s.dim + '</div></div>';
+  }).join('');
+
+  // daily trend (only for ranges > 1 day)
+  let trend = '';
+  if (D.data.from !== D.data.to) {
+    const byDay = {};
+    recs.forEach(r => (byDay[r.prodDate] = byDay[r.prodDate] || []).push(r));
+    const days = Object.keys(byDay).sort();
+    const pts = days.map(d => { const s = stats(byDay[d]); return { d, s, v: s.qty ? s.rej / s.qty : 0 }; });
+    const max = Math.max(0.05, ...pts.map(p => p.v));
+    trend = '<div class="card"><h2>Daily REJ % trend <small>REJ pcs ÷ test cut qty, per production date</small></h2>' +
+      '<div class="cols">' + pts.map(p => '<div class="c" title="' + fmtD(p.d) + ': ' + p.s.rej + ' / ' + p.s.qty + ' pcs"><span class="p">' +
+        (p.v ? pct(p.s.rej, p.s.qty) : '') + '</span><div class="b" style="height:' + Math.max(p.v ? 3 : 1, p.v / max * 100) + '%;' +
+        (p.v ? '' : 'background:var(--line)') + '"></div></div>').join('') + '</div>' +
+      '<div class="xl">' + pts.map((p, i) => '<span>' + (pts.length <= 14 || i % Math.ceil(pts.length / 12) === 0 ? fmtD(p.d).slice(0, 6) : '') + '</span>').join('') + '</div></div>';
+  }
+
+  return trend + '<div class="grid">' + rate('poro', 'qty', '#d97706', 'Porosity NG %') + rate('unm', 'qty', '#9333ea', 'Unmill NG %') +
+    rate('dim', 'n', '#c81e1e', 'Dimension NG %') + '</div><div style="height:14px"></div><div class="grid">' +
+    '<div class="card"><h2>Defect zones <small>how often each zone was NG</small></h2>' + (zones || '<div class="muted">No porosity / unmill NG in this period.</div>') + '</div>' +
+    '<div class="card"><h2>Cavity performance</h2>' + cav + '</div></div>';
+}
+
+// ───────── tab 3: machine summary ─────────
+function machineHtml() {
+  const recs = D.data.records;
+  const byMc = {};
+  recs.forEach(r => (byMc[r.machine] = byMc[r.machine] || []).push(r));
+  const cards = Object.keys(byMc).sort(nat).map(mc => {
+    const l = byMc[mc], s = stats(l);
+    return '<div class="mc' + (s.rej ? ' bad' : '') + '"><div class="h"><b>MC ' + esc(mc) + '</b><span class="y" style="color:' +
+      (s.rej ? 'var(--ng)' : 'var(--ok)') + '">' + pct(s.acc, s.qty) + '</span></div>' +
+      '<div class="muted" style="font-size:12px">' + esc(uniq(l.map(r => r.code)).join(', ')) + '</div>' +
+      '<div style="margin-top:6px">' + s.n + ' test cut(s) · ' + s.qty + ' pcs</div>' +
+      '<div>REJ <b class="' + (s.rej ? 'ng' : '') + '">' + s.rej + ' pcs</b> · porosity ' + s.poro + ' · unmill ' + s.unm + ' · dim fail ' + s.dim + '</div></div>';
+  }).join('');
+  // Model · MC · Cavity table (same as the email / PDF)
+  const g = {};
+  recs.forEach(r => { const k = [r.code, r.machine, r.cavity].join('\u0001'); (g[k] = g[k] || []).push(r); });
+  const rows = Object.values(g).sort((a, b) => mi(a[0].code) - mi(b[0].code) || nat(a[0].code, b[0].code) || nat(a[0].machine, b[0].machine) || nat(a[0].cavity, b[0].cavity));
+  const red = v => v ? '<span class="ng">' + v + '</span>' : v;
+  const table = '<div class="card"><h2>By Model · Machine · Cavity</h2><div class="tw"><table><tr>' +
+    ['Model', 'MC', 'Cav', 'Test Cut Qty', 'ACC pcs', 'REJ pcs', 'Porosity NG', 'Unmill NG', 'Dim fail'].map(x => '<th>' + x + '</th>').join('') + '</tr>' +
+    rows.map(l => { const s = stats(l);
+      return '<tr><td><b>' + esc(l[0].code) + '</b></td><td>' + esc(l[0].machine) + '</td><td>' + esc(l[0].cavity) + '</td><td>' + s.qty + '</td><td>' + s.acc +
+        '</td><td>' + red(s.rej) + '</td><td>' + red(s.poro) + ' <span class="muted">(' + pct(s.poro, s.qty) + ')</span></td><td>' + red(s.unm) +
+        ' <span class="muted">(' + pct(s.unm, s.qty) + ')</span></td><td>' + red(s.dim) + ' <span class="muted">(' + pct(s.dim, s.n) + ')</span></td></tr>'; }).join('') +
+    '</table></div></div>';
+  return '<div class="mcards">' + cards + '</div>' + table;
+}
+</script>
+</body>
+</html>
