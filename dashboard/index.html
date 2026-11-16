@@ -75,14 +75,17 @@
   .dlg { background: #fff; border-radius: 14px; width: 100%; max-width: 900px; padding: 16px; position: relative; }
   .dlg .x { position: absolute; top: 10px; right: 10px; }
   .dlg h3 { margin: 0 0 4px; color: var(--brand); padding-right: 70px; }
-  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 14px; margin: 10px 0; font-size: 13px; }
-  .kv div span { display: block; font-size: 11px; color: var(--muted); }
-  .phs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px 12px; margin: 10px 0 0; font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .kv div span { display: block; font-size: 10.5px; color: var(--muted); }
+  .phs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 6px; }
   .ph { font-size: 12px; }
   .ph .im { width: 100%; aspect-ratio: 4 / 3; background: #eef1f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); cursor: zoom-in; }
   .ph .im img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
-  .ph.map { grid-column: 1 / -1; } .ph.map .im { aspect-ratio: auto; min-height: 160px; } .ph.map img { height: auto; }
-  .sec { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .ph.map .im { border: 1px dashed var(--line); }
+  .sec { margin-top: 8px; padding-top: 6px; }
+  .sec + .sec { border-top: 1px solid var(--line); }
+  .cavm { margin-top: 12px; } .cavm:first-of-type { margin-top: 0; }
+  .cavm > b { display: block; font-size: 14px; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
   #zoom { position: fixed; inset: 0; background: #fff; z-index: 30; overflow: auto; }
   #zoom img { width: 100%; max-width: none; display: block; }
   #zoom .btn { position: fixed; top: 10px; right: 10px; background: var(--brand); color: #fff; border: 0; }
@@ -325,10 +328,11 @@ function wireLogs() {
 function openRec(id) {
   const r = D.data.records.find(x => x.id === id); if (!r) return;
   const kv = (l, v) => '<div><span>' + l + '</span>' + v + '</div>';
+  // photos first, details after, so the whole record fits on one screen
   let h = '<button class="btn x" onclick="closeRec()">Close ✕</button>' +
     '<h3>' + esc(r.code) + ' · MC ' + esc(r.machine) + ' · ' + esc(r.cavity) + ' <span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span></h3>' +
-    '<div class="muted">' + esc(r.model) + ' · Record ' + esc(r.id) + '</div>' +
-    '<div class="kv">' + kv('Production date', fmtD(r.prodDate) + ' · ' + esc(r.shift) + (r.late ? ' <span class="late">LATE</span>' : '')) +
+    '<div class="muted">' + esc(r.model) + ' · Record ' + esc(r.id) + '</div>';
+  const details = '<div class="kv">' + kv('Production date', fmtD(r.prodDate) + ' · ' + esc(r.shift) + (r.late ? ' <span class="late">LATE</span>' : '')) +
       kv('Lot / Basket', esc(r.lotNo) || '–') + kv('Test cut qty', esc(r.qty) + ' pcs') + kv('REJ pcs', rejPcs(r)) +
       kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : 'Pass') +
       kv('Operator', esc(r.operatorName)) + kv('Verified by', esc(r.verifiedBy) || '–') + kv('Submitted', esc(r.submittedAt)) +
@@ -341,7 +345,7 @@ function openRec(id) {
       const hasZones = (zones || []).some(Boolean);
       h += '<div class="sec"><b class="ng">' + label + '</b> ' + esc(qty) + ' pc @ ' +
         locList(locs).map(z => (hasZones ? '<span style="color:' + zoneColor(locs, z) + '">■</span> ' : '') + esc(z)).join(', ') + '<div class="phs">';
-      if (hasMap) { const el = 'im_' + kind + 'Map'; h += '<div class="ph map"><div class="im" id="' + el + '">Loading map…</div>Location map</div>'; jobs.push([el, kind + 'Map', 0]); }
+      const mapJobs = [];
       for (let i = 0; i < (n || 0); i++) {
         const z = zones && zones[i], col = z ? zoneColor(locs, z) : '';
         const el = 'im_' + kind + '_' + i;
@@ -349,9 +353,13 @@ function openRec(id) {
           (z ? '<span style="color:' + col + '">■</span> <b>Zone ' + esc(z) + '</b> · ' : 'Photo ') + p + (i + 1) + '</div>';
         jobs.push([el, kind, i]);
       }
+      // location map: small tile after the photos (tap to zoom)
+      if (hasMap) { const el = 'im_' + kind + 'Map'; h += '<div class="ph map"><div class="im" id="' + el + '">Loading map…</div>Location map (tap to enlarge)</div>'; mapJobs.push([el, kind + 'Map', 0]); }
+      jobs.push(...mapJobs);
       h += '</div></div>';
     });
   if (!jobs.length) h += '<div class="sec muted">No porosity / unmill NG – no photos for this record.</div>';
+  h += details;
   $('recBody').innerHTML = h;
   $('rec').classList.remove('hidden');
   D.openId = id;
@@ -401,16 +409,19 @@ function analyticsHtml() {
         t: x.v + ' record(s)' })), '#d97706') + '</div>';
   });
 
-  // cavity comparison
-  const byCav = {};
-  recs.forEach(r => (byCav[r.cavity] = byCav[r.cavity] || []).push(r));
-  const cav = Object.keys(byCav).sort(nat).map(c => {
-    const s = stats(byCav[c]);
-    return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><b>Cavity ' + esc(c) + '</b><span>' +
-      s.qty + ' pcs · <b class="' + (s.rej ? 'ng' : '') + '">' + pct(s.acc, s.qty) + ' ACC</b></span></div>' +
-      '<div class="t" style="height:12px;background:var(--ng);border-radius:6px;overflow:hidden;margin-top:4px"><div style="height:100%;width:' +
-      (s.qty ? s.acc / s.qty * 100 : 100) + '%;background:var(--ok)"></div></div>' +
-      '<div class="muted" style="font-size:12px">' + s.acc + ' ACC pcs · ' + s.rej + ' REJ pcs · porosity ' + s.poro + ' · unmill ' + s.unm + ' · dim fail ' + s.dim + '</div></div>';
+  // cavity comparison, per model (a cavity only means something within its model)
+  const cav = codes.map(code => {
+    const byCav = {};
+    byCode[code].forEach(r => (byCav[r.cavity] = byCav[r.cavity] || []).push(r));
+    return '<div class="cavm"><b title="' + esc(byCode[code][0].model) + '">' + esc(code) + '</b>' +
+      Object.keys(byCav).sort(nat).map(c => {
+        const s = stats(byCav[c]);
+        return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><b>Cavity ' + esc(c) + '</b><span>' +
+          s.qty + ' pcs · <b class="' + (s.rej ? 'ng' : '') + '">' + pct(s.acc, s.qty) + ' ACC</b></span></div>' +
+          '<div class="t" style="height:12px;background:var(--ng);border-radius:6px;overflow:hidden;margin-top:4px"><div style="height:100%;width:' +
+          (s.qty ? s.acc / s.qty * 100 : 100) + '%;background:var(--ok)"></div></div>' +
+          '<div class="muted" style="font-size:12px">' + s.acc + ' ACC pcs · ' + s.rej + ' REJ pcs · porosity ' + s.poro + ' · unmill ' + s.unm + ' · dim fail ' + s.dim + '</div></div>';
+      }).join('') + '</div>';
   }).join('');
 
   // daily trend (only for ranges > 1 day)
@@ -431,7 +442,7 @@ function analyticsHtml() {
   return trend + '<div class="grid">' + rate('poro', 'qty', '#d97706', 'Porosity NG %') + rate('unm', 'qty', '#9333ea', 'Unmill NG %') +
     rate('dim', 'n', '#c81e1e', 'Dimension NG %') + '</div><div style="height:14px"></div><div class="grid">' +
     '<div class="card"><h2>Defect zones <small>how often each zone was NG</small></h2>' + (zones || '<div class="muted">No porosity / unmill NG in this period.</div>') + '</div>' +
-    '<div class="card"><h2>Cavity performance</h2>' + cav + '</div></div>';
+    '<div class="card"><h2>Cavity performance <small>by model</small></h2>' + (cav || '<div class="muted">No records in this period.</div>') + '</div></div>';
 }
 
 // ───────── tab 3: machine summary ─────────
