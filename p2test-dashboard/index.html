@@ -181,7 +181,7 @@ function stats(l) {
   const rej = l.reduce((a, r) => a + rejPcs(r), 0), dim = l.filter(r => r.dim === 'Fail').length;
   return { n: l.length, qty, acc: qty - rej, rej, poro, unm, dim, nv: l.filter(r => !r.verifiedBy).length,
     rejRec: l.filter(r => r.lotStatus === 'REJ').length,
-    pc: l.filter(r => r.scrapStatus === 'Pending close').length };   // REJ waiting for scrap form + evidence
+    pc: l.filter(r => r.scrapStatus === 'Waiting to scrap').length };   // REJ waiting for scrap form + evidence
 }
 // zone colours – same rule as the app and the PDF
 const ZONE_COLORS = ['#e00000', '#1f6feb', '#15803d', '#d97706', '#9333ea', '#0891b2', '#db2777', '#4d7c0f'];
@@ -268,7 +268,7 @@ function render() {
     k('Unmill NG', pct(s.unm, s.qty), s.unm + ' pcs', s.unm ? 'bad' : '') +
     k('Dimension NG', pct(s.dim, s.n), s.dim + ' fail record(s)', s.dim ? 'bad' : '') +
     k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good') +
-    k('Scrap pending close', s.pc, 'of ' + s.rejRec + ' REJ record(s)', s.pc ? 'warn' : 'good');
+    k('Waiting to scrap', s.pc, 'of ' + s.rejRec + ' REJ record(s)', s.pc ? 'warn' : 'good');
 
   const tabs = [['logs', 'Inspection Logs (' + d.records.length + ')'], ['ana', 'Defect & Cavity Analytics'], ['mc', 'Machine Summary']];
   $('tabs').innerHTML = tabs.map(([t, l]) => '<button class="tab' + (D.tab === t ? ' on' : '') + '" data-t="' + t + '">' + esc(l) + '</button>').join('');
@@ -315,7 +315,7 @@ function logsHtml() {
       opt('lMc', 'All machines', uniq(recs.map(r => r.machine)).sort(nat), f.mc) +
       opt('lCav', 'All cavities', uniq(recs.map(r => r.cavity)).sort(nat), f.cav) +
       opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
-      opt('lScrap', 'All scrap status', ['Pending close', 'Closed'], f.scrap || 'All') +
+      opt('lScrap', 'All scrap status', ['Waiting to scrap', 'Done'], f.scrap || 'All') +
     '</div>' +
     '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot</th>' +
       th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + '<th>Scrap</th>' + th('ng', 'REJ pcs') +
@@ -329,7 +329,7 @@ function logsHtml() {
         '<td>' + ngTxt(r.unmill, r.unmillQty, r.unmillLocs) + '</td>' +
         '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '<span class="muted">–</span>') + '</td>' +
         '<td>' + statusTag(r) + '</td>' +
-        '<td>' + (r.scrapStatus ? '<span class="tag ' + (r.scrapStatus === 'Closed' ? 'CLOSED' : 'PEND') + '">' + esc(r.scrapStatus) + '</span>' : '<span class="muted">–</span>') + '</td>' +
+        '<td>' + (r.scrapStatus ? '<span class="tag ' + (r.scrapStatus === 'Done' ? 'CLOSED' : 'PEND') + '">' + esc(r.scrapStatus) + '</span>' : '<span class="muted">–</span>') + '</td>' +
         '<td>' + (rejPcs(r) ? '<span class="ng">' + rejPcs(r) + '</span>' : 0) + '</td>' +
         '<td>' + (r.verifiedBy ? esc(r.verifiedBy) : '<span class="muted">–</span>') + '</td><td>' + esc(r.operatorName) + '</td>' +
         '<td><button class="btn" data-id="' + esc(r.id) + '">' + (nPh ? '📷 View' : 'View') + '</button></td></tr>';
