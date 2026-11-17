@@ -54,6 +54,7 @@
   .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .tag.ACC { color: var(--ok); background: var(--ok-bg); } .tag.REJ { color: var(--ng); background: var(--ng-bg); }
   .tag.SAMPLE { color: #667085; background: #eef0f3; }
+  .tag.PEND { color: #92400e; background: #fef3c7; } .tag.CLOSED { color: #667085; background: #eef0f3; }
   .late { background: #fde68a; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 700; }
   .ng { color: var(--ng); font-weight: 700; } .muted { color: var(--muted); }
   .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; cursor: pointer; color: var(--brand); }
@@ -179,7 +180,8 @@ function stats(l) {
   const qty = sum('qty'), poro = sum('poroQty'), unm = sum('unmillQty');
   const rej = l.reduce((a, r) => a + rejPcs(r), 0), dim = l.filter(r => r.dim === 'Fail').length;
   return { n: l.length, qty, acc: qty - rej, rej, poro, unm, dim, nv: l.filter(r => !r.verifiedBy).length,
-    rejRec: l.filter(r => r.lotStatus === 'REJ').length };
+    rejRec: l.filter(r => r.lotStatus === 'REJ').length,
+    pc: l.filter(r => r.scrapStatus === 'Pending close').length };   // REJ waiting for scrap form + evidence
 }
 // zone colours – same rule as the app and the PDF
 const ZONE_COLORS = ['#e00000', '#1f6feb', '#15803d', '#d97706', '#9333ea', '#0891b2', '#db2777', '#4d7c0f'];
@@ -265,7 +267,8 @@ function render() {
     k('Porosity NG', pct(s.poro, s.qty), s.poro + ' pcs', s.poro ? 'bad' : '') +
     k('Unmill NG', pct(s.unm, s.qty), s.unm + ' pcs', s.unm ? 'bad' : '') +
     k('Dimension NG', pct(s.dim, s.n), s.dim + ' fail record(s)', s.dim ? 'bad' : '') +
-    k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good');
+    k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good') +
+    k('Scrap pending close', s.pc, 'of ' + s.rejRec + ' REJ record(s)', s.pc ? 'warn' : 'good');
 
   const tabs = [['logs', 'Inspection Logs (' + d.records.length + ')'], ['ana', 'Defect & Cavity Analytics'], ['mc', 'Machine Summary']];
   $('tabs').innerHTML = tabs.map(([t, l]) => '<button class="tab' + (D.tab === t ? ' on' : '') + '" data-t="' + t + '">' + esc(l) + '</button>').join('');
@@ -275,7 +278,7 @@ function render() {
   if (D.tab === 'logs' && d.records.length) wireLogs();
 }
 // Inspection Logs opens on REJ records (the ones to look at); "All status" shows everything
-function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All' }; D.limit = PAGE; }
+function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All', scrap: 'All' }; D.limit = PAGE; }
 
 const modelOrder = () => D.data.models.map(m => m.code);
 const mi = c => { const i = modelOrder().indexOf(c); return i < 0 ? 999 : i; };
@@ -286,6 +289,7 @@ function filtered() {
   return D.data.records.filter(r =>
     (f.status === 'All' || r.lotStatus === f.status) && (f.code === 'All' || r.code === f.code) &&
     (f.mc === 'All' || r.machine === f.mc) && (f.cav === 'All' || r.cavity === f.cav) && (f.shift === 'All' || r.shift === f.shift) &&
+    (!f.scrap || f.scrap === 'All' || r.scrapStatus === f.scrap) &&
     (!q || [r.id, r.code, r.model, r.machine, r.cavity, r.lotNo, r.operatorName, r.remarks].join(' ').toLowerCase().indexOf(q) >= 0));
 }
 function sorted(list) {
@@ -311,9 +315,10 @@ function logsHtml() {
       opt('lMc', 'All machines', uniq(recs.map(r => r.machine)).sort(nat), f.mc) +
       opt('lCav', 'All cavities', uniq(recs.map(r => r.cavity)).sort(nat), f.cav) +
       opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
+      opt('lScrap', 'All scrap status', ['Pending close', 'Closed'], f.scrap || 'All') +
     '</div>' +
     '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot</th>' +
-      th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + th('ng', 'REJ pcs') +
+      th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + '<th>Scrap</th>' + th('ng', 'REJ pcs') +
       '<th>Verified</th><th>Operator</th><th></th></tr>' +
     (list.length ? list.slice(0, D.limit).map(r => {
       const ngTxt = (yn, n, locs) => yn === 'Yes' ? '<span class="ng">' + esc(n) + ' pc</span> @ ' + esc(locs) : '<span class="muted">–</span>';
@@ -324,17 +329,18 @@ function logsHtml() {
         '<td>' + ngTxt(r.unmill, r.unmillQty, r.unmillLocs) + '</td>' +
         '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '<span class="muted">–</span>') + '</td>' +
         '<td>' + statusTag(r) + '</td>' +
+        '<td>' + (r.scrapStatus ? '<span class="tag ' + (r.scrapStatus === 'Closed' ? 'CLOSED' : 'PEND') + '">' + esc(r.scrapStatus) + '</span>' : '<span class="muted">–</span>') + '</td>' +
         '<td>' + (rejPcs(r) ? '<span class="ng">' + rejPcs(r) + '</span>' : 0) + '</td>' +
         '<td>' + (r.verifiedBy ? esc(r.verifiedBy) : '<span class="muted">–</span>') + '</td><td>' + esc(r.operatorName) + '</td>' +
         '<td><button class="btn" data-id="' + esc(r.id) + '">' + (nPh ? '📷 View' : 'View') + '</button></td></tr>';
-    }).join('') : '<tr><td colspan="13" class="empty">' + (D.f.status === 'REJ' ? '✅ No REJ records in this period. Choose <b>All status</b> to see all records.' : 'No records match these filters.') + '</td></tr>') +
+    }).join('') : '<tr><td colspan="14" class="empty">' + (D.f.status === 'REJ' ? '✅ No REJ records in this period. Choose <b>All status</b> to see all records.' : 'No records match these filters.') + '</td></tr>') +
     '</table></div>' + (list.length > D.limit ? '<div style="text-align:center;margin-top:10px"><button class="btn" id="more">Show more (' + (list.length - D.limit) + ' more)</button></div>' : '') +
     '<div class="muted" style="margin-top:8px;font-size:12px">Showing ' + Math.min(D.limit, list.length) + ' of ' + list.length + ' matching · ' + recs.length + ' record(s) in period · tap 📷 View to see NG photos</div></div>' +
     (D.data.spec ? '<div class="spec"><b>Porosity spec (' + esc(D.com) + ')</b>\n' + esc(D.data.spec) + '</div>' : '');
 }
 function wireLogs() {
   const set = (id, k) => { const el = $(id); if (el) el.onchange = e => { D.f[k] = e.target.value; D.limit = PAGE; render(); }; };
-  set('lStatus', 'status'); set('lCode', 'code'); set('lMc', 'mc'); set('lCav', 'cav'); set('lShift', 'shift');
+  set('lStatus', 'status'); set('lCode', 'code'); set('lMc', 'mc'); set('lCav', 'cav'); set('lShift', 'shift'); set('lScrap', 'scrap');
   const q = $('lq');
   if (q) q.oninput = () => { D.f.q = q.value; D.limit = PAGE; clearTimeout(q._t); q._t = setTimeout(() => { render(); const n = $('lq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 350); };
   document.querySelectorAll('th.sort').forEach(t => t.onclick = () => {
@@ -407,7 +413,7 @@ function openRec(id) {
     call('apiDashPhoto', D.key, id, kind, i).then(src => {
       const box = $(el); if (!box || D.openId !== id) return;
       putMedia(box, src);
-    }).catch(e => { const box = $(el); if (box) box.textContent = 'Photo not available'; }).then(run);
+    }).catch(e => { const box = $(el); if (box) box.innerHTML = 'Not available<br><small>' + esc((e && e.message) || '') + '</small>'; }).then(run);
   };
   run(); run();
 }
