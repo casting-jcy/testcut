@@ -354,7 +354,7 @@ function openRec(id) {
       kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '–') +
       kv('Operator', esc(r.operatorName)) + kv('Verified by', esc(r.verifiedBy) || '–') + kv('Submitted', esc(r.submittedAt)) +
       (r.qcDecision ? kv('QC decision', esc(r.qcDecision) + (r.qcReason ? '<div class="muted">' + esc(r.qcReason) + '</div>' : '')) : '') +
-      (r.scrapStatus ? kv('Scrap', esc(r.scrapStatus)) : '') +
+      (r.scrapStatus ? kv('Scrap form / evidence', esc(r.scrapStatus)) : '') +
       (r.remarks ? kv('Remarks', esc(r.remarks)) : '') + '</div>';
   const jobs = [];
   [['poro', 'Porosity', r.poro, r.poroQty, r.poroLocs, r.poroN, r.poroZones, r.poroMap, 'P'],
