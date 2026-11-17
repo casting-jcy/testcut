@@ -16,6 +16,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 14px 16px 40px; }
+
   header.top { background: var(--brand); color: #fff; }
   header.top .wrap { padding-top: 12px; padding-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   header.top h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
@@ -48,6 +49,8 @@
   tr:hover td { background: #fafbfc; }
   .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .tag.ACC { color: var(--ok); background: var(--ok-bg); } .tag.REJ { color: var(--ng); background: var(--ng-bg); }
+  .tag.SAMPLE { color: #667085; background: #eef0f3; }
+  .tag.PEND { color: #92400e; background: #fef3c7; } .tag.CLOSED { color: #667085; background: #eef0f3; }
   .late { background: #fde68a; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 700; }
   .ng { color: var(--ng); font-weight: 700; } .muted { color: var(--muted); }
   .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; cursor: pointer; color: var(--brand); }
@@ -82,6 +85,12 @@
   .ph .im { width: 100%; aspect-ratio: 4 / 3; background: #eef1f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); cursor: zoom-in; }
   .ph .im img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
   .ph.map .im { border: 1px dashed var(--line); }
+  .ph .im { position: relative; }
+  .ph .im .play { position: absolute; background: rgba(0,0,0,.65); color: #fff; padding: 5px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+  /* big location map on the left (height of 2 photos), photos 2 per column on the right, 3rd / 4th in the next column */
+  .phs.wm { grid-template-rows: auto auto; grid-auto-flow: column; }
+  .phs.wm .ph.map { grid-row: 1 / span 2; display: flex; flex-direction: column; }
+  .phs.wm .ph.map .im { flex: 1; aspect-ratio: auto; min-height: 120px; }
   .sec { margin-top: 8px; padding-top: 6px; }
   .sec + .sec { border-top: 1px solid var(--line); }
   .cavm { margin-top: 12px; } .cavm:first-of-type { margin-top: 0; }
@@ -154,13 +163,22 @@ const uniq = a => a.filter((v, i) => v !== '' && v != null && a.indexOf(v) === i
 const locList = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
 
 // same rules as the email / PDF (Code.gs rejPcs_ / ngStats_)
-const rejPcs = r => { const q = Number(r.qty) || 0; return r.dim === 'Fail' ? q : Math.min(q, (Number(r.poroQty) || 0) + (Number(r.unmillQty) || 0)); };
+// QC changed the status (P2-13): accepted by QC → 0 REJ pcs, rejected by QC → whole qty (same rule as rejPcs_ in Code.gs)
+// machine label: "F-01" (block-MC) as it is; an old record without block: "MC 01"
+const mcTxt = v => /^[A-Za-z]+-/.test(String(v)) ? String(v) : 'MC ' + v;
+const qcChanged = r => !!(r.opStatus && r.opStatus !== r.lotStatus);
+const rejPcs = r => { const q = Number(r.qty) || 0; if (qcChanged(r)) return r.lotStatus === 'ACC' ? 0 : q;
+  return r.dim === 'Fail' ? q : Math.min(q, (Number(r.poroQty) || 0) + (Number(r.unmillQty) || 0)); };
+const statusTag = r => '<span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span>' +
+  (qcChanged(r) ? ' <span class="muted" style="font-size:11px" title="' + esc(r.qcReason) + '">QC (was ' + esc(r.opStatus) + ')</span>' : '');
 function stats(l) {
+  l = l.filter(r => r.lotStatus !== 'NO SAMPLE');   // basket without test cut: listed, not counted
   const sum = k => l.reduce((a, r) => a + (Number(r[k]) || 0), 0);
   const qty = sum('qty'), poro = sum('poroQty'), unm = sum('unmillQty');
   const rej = l.reduce((a, r) => a + rejPcs(r), 0), dim = l.filter(r => r.dim === 'Fail').length;
   return { n: l.length, qty, acc: qty - rej, rej, poro, unm, dim, nv: l.filter(r => !r.verifiedBy).length,
-    rejRec: l.filter(r => r.lotStatus === 'REJ').length };
+    rejRec: l.filter(r => r.lotStatus === 'REJ').length,
+    pc: l.filter(r => r.scrapStatus === 'Waiting to scrap').length };   // REJ waiting for scrap form + evidence
 }
 // zone colours – same rule as the app and the PDF
 const ZONE_COLORS = ['#e00000', '#1f6feb', '#15803d', '#d97706', '#9333ea', '#0891b2', '#db2777', '#4d7c0f'];
@@ -246,7 +264,8 @@ function render() {
     k('Porosity NG', pct(s.poro, s.qty), s.poro + ' pcs', s.poro ? 'bad' : '') +
     k('Unmill NG', pct(s.unm, s.qty), s.unm + ' pcs', s.unm ? 'bad' : '') +
     k('Dimension NG', pct(s.dim, s.n), s.dim + ' fail record(s)', s.dim ? 'bad' : '') +
-    k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good');
+    k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good') +
+    k('Waiting to scrap', s.pc, 'of ' + s.rejRec + ' REJ record(s)', s.pc ? 'warn' : 'good');
 
   const tabs = [['logs', 'Inspection Logs (' + d.records.length + ')'], ['ana', 'Defect & Cavity Analytics'], ['mc', 'Machine Summary']];
   $('tabs').innerHTML = tabs.map(([t, l]) => '<button class="tab' + (D.tab === t ? ' on' : '') + '" data-t="' + t + '">' + esc(l) + '</button>').join('');
@@ -256,7 +275,7 @@ function render() {
   if (D.tab === 'logs' && d.records.length) wireLogs();
 }
 // Inspection Logs opens on REJ records (the ones to look at); "All status" shows everything
-function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All' }; D.limit = PAGE; }
+function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All', scrap: 'All' }; D.limit = PAGE; }
 
 const modelOrder = () => D.data.models.map(m => m.code);
 const mi = c => { const i = modelOrder().indexOf(c); return i < 0 ? 999 : i; };
@@ -267,6 +286,7 @@ function filtered() {
   return D.data.records.filter(r =>
     (f.status === 'All' || r.lotStatus === f.status) && (f.code === 'All' || r.code === f.code) &&
     (f.mc === 'All' || r.machine === f.mc) && (f.cav === 'All' || r.cavity === f.cav) && (f.shift === 'All' || r.shift === f.shift) &&
+    (!f.scrap || f.scrap === 'All' || r.scrapStatus === f.scrap) &&
     (!q || [r.id, r.code, r.model, r.machine, r.cavity, r.lotNo, r.operatorName, r.remarks].join(' ').toLowerCase().indexOf(q) >= 0));
 }
 function sorted(list) {
@@ -287,35 +307,37 @@ function logsHtml() {
   return '<div class="card">' +
     '<div class="filters">' +
       '<input id="lq" placeholder="Search record, model, MC, lot, operator…" style="flex:1 1 220px" value="' + esc(f.q) + '">' +
-      opt('lStatus', 'All status', ['ACC', 'REJ'], f.status) +
+      opt('lStatus', 'All status', ['ACC', 'REJ', 'NO SAMPLE'], f.status) +
       opt('lCode', 'All models', uniq(recs.map(r => r.code)).sort((a, b) => mi(a) - mi(b)), f.code) +
       opt('lMc', 'All machines', uniq(recs.map(r => r.machine)).sort(nat), f.mc) +
       opt('lCav', 'All cavities', uniq(recs.map(r => r.cavity)).sort(nat), f.cav) +
       opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
+      opt('lScrap', 'All scrap status', ['Waiting to scrap', 'Done'], f.scrap || 'All') +
     '</div>' +
     '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot</th>' +
-      th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + th('ng', 'REJ pcs') +
+      th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + '<th>Scrap</th>' + th('ng', 'REJ pcs') +
       '<th>Verified</th><th>Operator</th><th></th></tr>' +
     (list.length ? list.slice(0, D.limit).map(r => {
       const ngTxt = (yn, n, locs) => yn === 'Yes' ? '<span class="ng">' + esc(n) + ' pc</span> @ ' + esc(locs) : '<span class="muted">–</span>';
       const nPh = (r.poroN || 0) + (r.unmillN || 0);
       return '<tr><td>' + fmtD(r.prodDate) + (r.late ? ' <span class="late">LATE</span>' : '') + '<div class="muted">' + esc(r.shift) + '</div></td>' +
-        '<td><b>' + esc(r.code) + '</b></td><td>MC ' + esc(r.machine) + '<div class="muted">' + esc(r.cavity) + '</div></td>' +
+        '<td><b>' + esc(r.code) + '</b></td><td>' + esc(mcTxt(r.machine)) + '<div class="muted">' + esc(r.cavity) + '</div></td>' +
         '<td>' + esc(r.lotNo) + '</td><td>' + esc(r.qty) + '</td><td>' + ngTxt(r.poro, r.poroQty, r.poroLocs) + '</td>' +
         '<td>' + ngTxt(r.unmill, r.unmillQty, r.unmillLocs) + '</td>' +
-        '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : 'Pass') + '</td>' +
-        '<td><span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span></td>' +
+        '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '<span class="muted">–</span>') + '</td>' +
+        '<td>' + statusTag(r) + '</td>' +
+        '<td>' + (r.scrapStatus ? '<span class="tag ' + (r.scrapStatus === 'Done' ? 'CLOSED' : 'PEND') + '">' + esc(r.scrapStatus) + '</span>' : '<span class="muted">–</span>') + '</td>' +
         '<td>' + (rejPcs(r) ? '<span class="ng">' + rejPcs(r) + '</span>' : 0) + '</td>' +
         '<td>' + (r.verifiedBy ? esc(r.verifiedBy) : '<span class="muted">–</span>') + '</td><td>' + esc(r.operatorName) + '</td>' +
         '<td><button class="btn" data-id="' + esc(r.id) + '">' + (nPh ? '📷 View' : 'View') + '</button></td></tr>';
-    }).join('') : '<tr><td colspan="13" class="empty">' + (D.f.status === 'REJ' ? '✅ No REJ records in this period. Choose <b>All status</b> to see all records.' : 'No records match these filters.') + '</td></tr>') +
+    }).join('') : '<tr><td colspan="14" class="empty">' + (D.f.status === 'REJ' ? '✅ No REJ records in this period. Choose <b>All status</b> to see all records.' : 'No records match these filters.') + '</td></tr>') +
     '</table></div>' + (list.length > D.limit ? '<div style="text-align:center;margin-top:10px"><button class="btn" id="more">Show more (' + (list.length - D.limit) + ' more)</button></div>' : '') +
     '<div class="muted" style="margin-top:8px;font-size:12px">Showing ' + Math.min(D.limit, list.length) + ' of ' + list.length + ' matching · ' + recs.length + ' record(s) in period · tap 📷 View to see NG photos</div></div>' +
     (D.data.spec ? '<div class="spec"><b>Porosity spec (' + esc(D.com) + ')</b>\n' + esc(D.data.spec) + '</div>' : '');
 }
 function wireLogs() {
   const set = (id, k) => { const el = $(id); if (el) el.onchange = e => { D.f[k] = e.target.value; D.limit = PAGE; render(); }; };
-  set('lStatus', 'status'); set('lCode', 'code'); set('lMc', 'mc'); set('lCav', 'cav'); set('lShift', 'shift');
+  set('lStatus', 'status'); set('lCode', 'code'); set('lMc', 'mc'); set('lCav', 'cav'); set('lShift', 'shift'); set('lScrap', 'scrap');
   const q = $('lq');
   if (q) q.oninput = () => { D.f.q = q.value; D.limit = PAGE; clearTimeout(q._t); q._t = setTimeout(() => { render(); const n = $('lq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 350); };
   document.querySelectorAll('th.sort').forEach(t => t.onclick = () => {
@@ -330,12 +352,14 @@ function openRec(id) {
   const kv = (l, v) => '<div><span>' + l + '</span>' + v + '</div>';
   // photos first, details after, so the whole record fits on one screen
   let h = '<button class="btn x" onclick="closeRec()">Close ✕</button>' +
-    '<h3>' + esc(r.code) + ' · MC ' + esc(r.machine) + ' · ' + esc(r.cavity) + ' <span class="tag ' + esc(r.lotStatus) + '">' + esc(r.lotStatus) + '</span></h3>' +
+    '<h3>' + esc(r.code) + ' · ' + esc(mcTxt(r.machine)) + ' · ' + esc(r.cavity) + ' ' + statusTag(r) + '</h3>' +
     '<div class="muted">' + esc(r.model) + ' · Record ' + esc(r.id) + '</div>';
   const details = '<div class="kv">' + kv('Production date', fmtD(r.prodDate) + ' · ' + esc(r.shift) + (r.late ? ' <span class="late">LATE</span>' : '')) +
       kv('Lot / Basket', esc(r.lotNo) || '–') + kv('Test cut qty', esc(r.qty) + ' pcs') + kv('REJ pcs', rejPcs(r)) +
-      kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : 'Pass') +
+      kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '–') +
       kv('Operator', esc(r.operatorName)) + kv('Verified by', esc(r.verifiedBy) || '–') + kv('Submitted', esc(r.submittedAt)) +
+      (r.qcDecision ? kv('QC decision', esc(r.qcDecision) + (r.qcReason ? '<div class="muted">' + esc(r.qcReason) + '</div>' : '')) : '') +
+
       (r.remarks ? kv('Remarks', esc(r.remarks)) : '') + '</div>';
   const jobs = [];
   [['poro', 'Porosity', r.poro, r.poroQty, r.poroLocs, r.poroN, r.poroZones, r.poroMap, 'P'],
@@ -344,8 +368,10 @@ function openRec(id) {
       if (yn !== 'Yes') return;
       const hasZones = (zones || []).some(Boolean);
       h += '<div class="sec"><b class="ng">' + label + '</b> ' + esc(qty) + ' pc @ ' +
-        locList(locs).map(z => (hasZones ? '<span style="color:' + zoneColor(locs, z) + '">■</span> ' : '') + esc(z)).join(', ') + '<div class="phs">';
+        locList(locs).map(z => (hasZones ? '<span style="color:' + zoneColor(locs, z) + '">■</span> ' : '') + esc(z)).join(', ') + (hasMap ? '<div class="phs wm" style="grid-template-columns:2fr repeat(' + Math.max(1, Math.ceil((n || 0) / 2)) + ', 1fr)">' : '<div class="phs">');
       const mapJobs = [];
+      // location map first: big, on the left (tap to zoom); loaded after the photos
+      if (hasMap) { const el = 'im_' + kind + 'Map'; h += '<div class="ph map"><div class="im" id="' + el + '">Loading map…</div>Location map (tap to enlarge)</div>'; mapJobs.push([el, kind + 'Map', 0]); }
       for (let i = 0; i < (n || 0); i++) {
         const z = zones && zones[i], col = z ? zoneColor(locs, z) : '';
         const el = 'im_' + kind + '_' + i;
@@ -353,12 +379,25 @@ function openRec(id) {
           (z ? '<span style="color:' + col + '">■</span> <b>Zone ' + esc(z) + '</b> · ' : 'Photo ') + p + (i + 1) + '</div>';
         jobs.push([el, kind, i]);
       }
-      // location map: small tile after the photos (tap to zoom)
-      if (hasMap) { const el = 'im_' + kind + 'Map'; h += '<div class="ph map"><div class="im" id="' + el + '">Loading map…</div>Location map (tap to enlarge)</div>'; mapJobs.push([el, kind + 'Map', 0]); }
       jobs.push(...mapJobs);
       h += '</div></div>';
     });
   if (!jobs.length) h += '<div class="sec muted">No porosity / unmill NG – no photos for this record.</div>';
+  const MUTED_CLS = 'muted';
+  // scrap form + evidence (REJ close-out)
+  const nF = r.scrapFormN != null ? r.scrapFormN : (r.scrapForm || []).length, nE = r.scrapEvN != null ? r.scrapEvN : (r.scrapEvidence || []).length;
+  if (r.lotStatus === 'REJ' || nF || nE) {
+    h += '<div class="sec"><b>Scrap form &amp; evidence</b> ' + (r.scrapStatus ? '– ' + esc(r.scrapStatus) : '') +
+      (nF || nE ? '<div class="phs">' : '<div class="' + (typeof MUTED_CLS !== 'undefined' ? MUTED_CLS : 'hint') + '">Not uploaded yet.</div>');
+    [['scrapForm', nF, 'Scrap form'], ['scrapEvidence', nE, 'Evidence']].forEach(([kind, n, label]) => {
+      for (let i = 0; i < n; i++) {
+        const el = 'im_' + kind + '_' + i;
+        h += '<div class="ph"><div class="im" id="' + el + '">Loading…</div>' + label + ' ' + (i + 1) + '</div>';
+        jobs.push([el, kind, i]);
+      }
+    });
+    h += (nF || nE ? '</div>' : '') + '</div>';
+  }
   h += details;
   $('recBody').innerHTML = h;
   $('rec').classList.remove('hidden');
@@ -370,10 +409,19 @@ function openRec(id) {
     const [el, kind, i] = jobs[next++];
     call('apiDashPhoto', D.key, id, kind, i).then(src => {
       const box = $(el); if (!box || D.openId !== id) return;
-      box.innerHTML = '<img alt="">'; box.firstChild.src = src; box.onclick = () => { $('zoomImg').src = src; $('zoom').classList.remove('hidden'); };
-    }).catch(e => { const box = $(el); if (box) box.textContent = 'Photo not available'; }).then(run);
+      putMedia(box, src);
+    }).catch(e => { const box = $(el); if (box) box.innerHTML = 'Not available<br><small>' + esc((e && e.message) || '') + '</small>'; }).then(run);
   };
   run(); run();
+}
+function putMedia(box, src) {
+  if (src && src.video) {   // video evidence: thumbnail + ▶, tap opens the video in Google Drive
+    box.innerHTML = (src.thumb ? '<img alt="">' : '') + '<span class="play">▶ Video</span>';
+    if (src.thumb) box.firstChild.src = src.thumb;
+    box.onclick = () => window.open(src.url, '_blank', 'noopener');
+    return;
+  }
+  box.innerHTML = '<img alt="">'; box.firstChild.src = src; box.onclick = () => { $('zoomImg').src = src; $('zoom').classList.remove('hidden'); };
 }
 function closeRec() { $('rec').classList.add('hidden'); D.openId = null; }
 
@@ -452,7 +500,7 @@ function machineHtml() {
   recs.forEach(r => (byMc[r.machine] = byMc[r.machine] || []).push(r));
   const cards = Object.keys(byMc).sort(nat).map(mc => {
     const l = byMc[mc], s = stats(l);
-    return '<div class="mc' + (s.rej ? ' bad' : '') + '"><div class="h"><b>MC ' + esc(mc) + '</b><span class="y" style="color:' +
+    return '<div class="mc' + (s.rej ? ' bad' : '') + '"><div class="h"><b>' + esc(mcTxt(mc)) + '</b><span class="y" style="color:' +
       (s.rej ? 'var(--ng)' : 'var(--ok)') + '">' + pct(s.acc, s.qty) + '</span></div>' +
       '<div class="muted" style="font-size:12px">' + esc(uniq(l.map(r => r.code)).join(', ')) + '</div>' +
       '<div style="margin-top:6px">' + s.n + ' test cut(s) · ' + s.qty + ' pcs</div>' +
