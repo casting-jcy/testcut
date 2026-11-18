@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- GitHub Pages copy of Phase2/app/Dashboard.html (PHASE 2 TEST). Reads the TEST web app only. Do not edit here: copy again from Phase2/app/Dashboard.html. -->
+<!-- GitHub Pages copy of Phase3/app/Dashboard.html (PHASE 3 TEST). Reads the TEST web app only. Do not edit here: copy again from Phase3/app/Dashboard.html. -->
 <html>
 <head>
 <base target="_top">
@@ -18,9 +18,9 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 14px 16px 40px; }
 
-  /* ── PHASE 2 TEST look (test copy only – do NOT copy to live) ── */
-  body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='160'%3E%3Ctext x='20' y='100' transform='rotate(-25 130 80)' font-family='Arial' font-size='34' font-weight='700' fill='%236b21a8' fill-opacity='0.07'%3EPHASE 2 TEST%3C/text%3E%3C/svg%3E"); }
-  header.top::before { content: '🧪 PHASE 2 TEST APP – NOT LIVE – records here are not real'; display: block; background: #facc15; color: #111; text-align: center; font: 800 12px/1.2 Arial, sans-serif; letter-spacing: .04em; padding: 5px 8px; border-bottom: 3px solid #111; }
+  /* ── PHASE 3 TEST look (test copy only – do NOT copy to live) ── */
+  body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='160'%3E%3Ctext x='20' y='100' transform='rotate(-25 130 80)' font-family='Arial' font-size='34' font-weight='700' fill='%236b21a8' fill-opacity='0.07'%3EPHASE 3 TEST%3C/text%3E%3C/svg%3E"); }
+  header.top::before { content: '🧪 PHASE 3 TEST APP – NOT LIVE – records here are not real'; display: block; background: #facc15; color: #111; text-align: center; font: 800 12px/1.2 Arial, sans-serif; letter-spacing: .04em; padding: 5px 8px; border-bottom: 3px solid #111; }
   header.top { background: var(--brand); color: #fff; }
   header.top .wrap { padding-top: 12px; padding-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   header.top h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
@@ -141,7 +141,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
 //  • GitHub Pages (casting-jcy.github.io/testcut/dashboard/) – data is fetched from the web app WITHOUT Google
 //    sign-in cookies, so it works even when the viewer is signed into several Google accounts;
 //  • inside Apps Script (old links …/exec?page=dash) – uses google.script.run.
-const API = 'https://script.google.com/macros/s/AKfycbwG4WmAQO5UwRB-9hsuiVlCY4gBpVK2x_cNejzJph-JEe9g1nzmq-mZSp5d3GYaqo9H/exec';   // PHASE 2 TEST web app ONLY (never the live one)
+const API = 'https://script.google.com/macros/s/AKfycbwG4WmAQO5UwRB-9hsuiVlCY4gBpVK2x_cNejzJph-JEe9g1nzmq-mZSp5d3GYaqo9H/exec';   // PHASE 3 TEST web app ONLY (never the live one)
 const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 async function apiGet(params) {
   const r = await fetch(API + '?' + new URLSearchParams(params).toString(), { credentials: 'omit', redirect: 'follow' });
