@@ -316,7 +316,7 @@ function logsHtml() {
       opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
       opt('lScrap', 'All scrap status', ['Waiting to scrap', 'Done'], f.scrap || 'All') +
     '</div>' +
-    '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot</th>' +
+    '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot No / Basket No</th>' +
       th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + '<th>Scrap</th>' + th('ng', 'REJ pcs') +
       '<th>Verified</th><th>Operator</th><th></th></tr>' +
     (list.length ? list.slice(0, D.limit).map(r => {
@@ -357,7 +357,7 @@ function openRec(id) {
     '<h3>' + esc(r.code) + ' · ' + esc(mcTxt(r.machine)) + ' · ' + esc(r.cavity) + ' ' + statusTag(r) + '</h3>' +
     '<div class="muted">' + esc(r.model) + ' · Record ' + esc(r.id) + '</div>';
   const details = '<div class="kv">' + kv('Production date', fmtD(r.prodDate) + ' · ' + esc(r.shift) + (r.late ? ' <span class="late">LATE</span>' : '')) +
-      kv('Lot / Basket', esc(r.lotNo) || '–') + kv('Test cut qty', esc(r.qty) + ' pcs') + kv('REJ pcs', rejPcs(r)) +
+      kv('Lot No / Basket No', esc(r.lotNo) || '–') + kv('Test cut qty', esc(r.qty) + ' pcs') + kv('REJ pcs', rejPcs(r)) +
       kv('Dimension', r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '–') +
       kv('Operator', esc(r.operatorName)) + kv('Verified by', esc(r.verifiedBy) || '–') + kv('Submitted', esc(r.submittedAt)) +
       (r.qcDecision ? kv('QC decision', esc(r.qcDecision) + (r.qcReason ? '<div class="muted">' + esc(r.qcReason) + '</div>' : '')) : '') +
