@@ -267,7 +267,6 @@ function render() {
     k('Porosity NG', pct(s.poro, s.qty), s.poro + ' pcs', s.poro ? 'bad' : '') +
     k('Unmill NG', pct(s.unm, s.qty), s.unm + ' pcs', s.unm ? 'bad' : '') +
     k('Dimension NG', pct(s.dim, s.n), s.dim + ' fail record(s)', s.dim ? 'bad' : '') +
-    k('Pending verification', s.nv, 'of ' + s.n + ' record(s)', s.nv ? 'warn' : 'good') +
     k('Waiting to scrap', s.pc, 'of ' + s.rejRec + ' REJ record(s)', s.pc ? 'warn' : 'good');
 
   const tabs = [['logs', 'Inspection Logs (' + d.records.length + ')'], ['ana', 'Defect & Cavity Analytics'], ['mc', 'Machine Summary']];
