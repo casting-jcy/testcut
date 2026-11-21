@@ -150,7 +150,7 @@ async function apiGet(params) {
 const call = (fn, ...a) => {
   if (IN_GAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...a));
   if (fn === 'apiDashData') return apiGet({ api: 'dash', k: a[0], com: a[1].commodity || '', from: a[1].from, to: a[1].to }).then(j => j.text);
-  if (fn === 'apiDashPhoto') return apiGet({ api: 'photo', k: a[0], id: a[1], kind: a[2], i: a[3] }).then(j => j.src);
+  if (fn === 'apiDashPhoto') return apiGet({ api: 'photo', k: a[0], id: a[1], kind: a[2], i: a[3], preview: a[4] ? '1' : '0' }).then(j => j.src);
   return Promise.reject(new Error('Unknown request'));
 };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -190,6 +190,9 @@ const D = { key: '', com: '', preset: 'date', date: '', from: '', to: '', data: 
 const PAGE = 100;   // log rows drawn at a time ("Show more" adds the next 100)
 const PRESETS = [['y', 'Yesterday'], ['7d', '7 days'], ['1m', '1 month'], ['6m', '6 months']];
 
+const pendingPeriods = new Map();
+let dashboardLoad = 0;
+
 function start(p) {
   D.key = p.k || '';
   D.com = p.com || '';
@@ -212,6 +215,7 @@ function rangeFor(today, yday) {
 }
 
 async function load() {
+  const loadId = ++dashboardLoad;
   // "today" from the browser for the first call; the server's answer corrects it
   const n = new Date(), local = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
   const t = D.data ? D.data.today : local;
@@ -222,22 +226,32 @@ async function load() {
     // periods already loaded in the last 2 minutes are shown straight away (no new server call)
     const ck = D.com + '|' + D.from + '|' + D.to;
     const hit = D.memo[ck];
-    if (hit && Date.now() - hit.at < 120000) D.data = hit.data;
-    else {
-      const d = JSON.parse(await call('apiDashData', D.key, { commodity: D.com, from: D.from, to: D.to }));
-      // compact rows → record objects
-      d.records = d.rows.map(a => { const o = {}; d.fields.forEach((f, i) => { o[f] = a[i]; }); return o; });
-      delete d.rows;
-      D.data = d;
-      D.memo[d.commodity + '|' + d.from + '|' + d.to] = { at: Date.now(), data: d };
+    let data = hit && Date.now() - hit.at < 120000 ? hit.data : null;
+    if (!data) {
+      if (!pendingPeriods.has(ck)) {
+        const query = { commodity: D.com, from: D.from, to: D.to };
+        const request = call('apiDashData', D.key, query).then(text => {
+          const d = JSON.parse(text);
+          d.records = d.rows.map(a => { const o = {}; d.fields.forEach((f, i) => { o[f] = a[i]; }); return o; });
+          delete d.rows;
+          const entry = { at: Date.now(), data: d };
+          D.memo[ck] = entry;
+          D.memo[d.commodity + '|' + d.from + '|' + d.to] = entry;
+          return d;
+        }).finally(() => pendingPeriods.delete(ck));
+        pendingPeriods.set(ck, request);
+      }
+      data = await pendingPeriods.get(ck);
     }
+    if (loadId !== dashboardLoad) return;
+    D.data = data;
     // the daily email opens yesterday's production date: show it as the "Yesterday" chip
     if (D.preset === 'date' && D.date === D.data.yesterday) D.preset = 'y';
     D.limit = PAGE;
     D.com = D.data.commodity;
     $('msg').classList.add('hidden'); $('main').classList.remove('hidden');
     render();
-  } catch (e) { showMsg((e && e.message) || String(e), true); }
+  } catch (e) { if (loadId === dashboardLoad) showMsg((e && e.message) || String(e), true); }
 }
 
 // ───────── render ─────────
@@ -400,29 +414,49 @@ function openRec(id) {
   h += details;
   $('recBody').innerHTML = h;
   $('rec').classList.remove('hidden');
-  D.openId = id;
+  const opening = {};
+  D.opening = opening;
   // load photos 2 at a time
   let next = 0;
   const run = () => {
-    if (next >= jobs.length || D.openId !== id) return;
+    if (next >= jobs.length || D.opening !== opening) return;
     const [el, kind, i] = jobs[next++];
-    call('apiDashPhoto', D.key, id, kind, i).then(src => {
-      const box = $(el); if (!box || D.openId !== id) return;
-      putMedia(box, src);
-    }).catch(e => { const box = $(el); if (box) box.innerHTML = 'Not available<br><small>' + esc((e && e.message) || '') + '</small>'; }).then(run);
+    call('apiDashPhoto', D.key, id, kind, i, true).then(src => {
+      const box = $(el); if (!box || D.opening !== opening) return;
+      putMedia(box, src, () => call('apiDashPhoto', D.key, id, kind, i));
+    }).catch(e => {
+      const box = $(el);
+      if (box && D.opening === opening) box.innerHTML = 'Not available<br><small>' + esc((e && e.message) || '') + '</small>';
+    }).then(run);
   };
   run(); run();
 }
-function putMedia(box, src) {
+let zoomRequest = 0;
+function putMedia(box, src, fetchOriginal) {
   if (src && src.video) {   // video evidence: thumbnail + ▶, tap opens the video in Google Drive
     box.innerHTML = (src.thumb ? '<img alt="">' : '') + '<span class="play">▶ Video</span>';
     if (src.thumb) box.firstChild.src = src.thumb;
     box.onclick = () => window.open(src.url, '_blank', 'noopener');
     return;
   }
-  box.innerHTML = '<img alt="">'; box.firstChild.src = src; box.onclick = () => { $('zoomImg').src = src; $('zoom').classList.remove('hidden'); };
+  const preview = src && src.preview;
+  box.innerHTML = '<img alt="">';
+  box.firstChild.src = preview || src;
+  let original = preview ? '' : src;
+  let pending;
+  box.onclick = async () => {
+    const request = ++zoomRequest;
+    $('zoomImg').src = original || preview;
+    $('zoom').classList.remove('hidden');
+    if (original) return;
+    try {
+      pending = pending || fetchOriginal().finally(() => { pending = null; });
+      original = await pending;
+      if (request === zoomRequest && !$('zoom').classList.contains('hidden')) $('zoomImg').src = original;
+    } catch (e) { /* Keep the preview available if the original could not be loaded. */ }
+  };
 }
-function closeRec() { $('rec').classList.add('hidden'); D.openId = null; }
+function closeRec() { $('rec').classList.add('hidden'); D.opening = null; }
 
 // ───────── tab 2: analytics ─────────
 function bars(rows, color) {
