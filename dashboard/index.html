@@ -186,7 +186,7 @@ const zoneColor = (locs, z) => { const i = locList(locs).indexOf(z); return i < 
 
 // ───────── state ─────────
 const D = { key: '', com: '', preset: 'date', date: '', from: '', to: '', data: null, tab: 'logs',
-  f: { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All' }, sort: { k: 'date', dir: 1 }, memo: {}, limit: 100 };
+  f: { q: '', status: 'All', code: 'All', mc: 'All', cav: 'All', shift: 'All' }, sort: { k: 'date', dir: 1 }, memo: {}, limit: 100 };
 const PAGE = 100;   // log rows drawn at a time ("Show more" adds the next 100)
 const PRESETS = [['y', 'Yesterday'], ['7d', '7 days'], ['1m', '1 month'], ['6m', '6 months']];
 
@@ -288,7 +288,7 @@ function render() {
   if (D.tab === 'logs' && d.records.length) wireLogs();
 }
 // Inspection Logs opens on REJ records (the ones to look at); "All status" shows everything
-function resetFilters() { D.f = { q: '', status: 'REJ', code: 'All', mc: 'All', cav: 'All', shift: 'All', scrap: 'All' }; D.limit = PAGE; }
+function resetFilters() { D.f = { q: '', status: 'All', code: 'All', mc: 'All', cav: 'All', shift: 'All', scrap: 'All' }; D.limit = PAGE; }
 
 const modelOrder = () => D.data.models.map(m => m.code);
 const mi = c => { const i = modelOrder().indexOf(c); return i < 0 ? 999 : i; };
