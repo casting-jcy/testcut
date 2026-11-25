@@ -533,7 +533,7 @@ function machineHtml() {
   recs.forEach(r => (byMc[r.machine] = byMc[r.machine] || []).push(r));
   const cards = Object.keys(byMc).sort(nat).map(mc => {
     const l = byMc[mc], s = stats(l);
-    return '<div class="mc' + (s.rej ? ' bad' : '') + '"><div class="h"><b>' + esc(mcTxt(mc)) + '</b><span class="y" style="color:' +
+    return '<div class="mc' + (s.rej ? ' bad' : '') + '"><div class="h"><b>' + esc(mcTxt(mc)) + (l[0].tonnage ? ' <span class="muted" style="font-weight:normal">' + esc(l[0].tonnage) + '</span>' : '') + '</b><span class="y" style="color:' +
       (s.rej ? 'var(--ng)' : 'var(--ok)') + '">' + pct(s.acc, s.qty) + '</span></div>' +
       '<div class="muted" style="font-size:12px">' + esc(uniq(l.map(r => r.code)).join(', ')) + '</div>' +
       '<div style="margin-top:6px">' + s.n + ' test cut(s) · ' + s.qty + ' pcs</div>' +
@@ -551,7 +551,22 @@ function machineHtml() {
         '</td><td>' + red(s.rej) + '</td><td>' + red(s.poro) + ' <span class="muted">(' + pct(s.poro, s.qty) + ')</span></td><td>' + red(s.unm) +
         ' <span class="muted">(' + pct(s.unm, s.qty) + ')</span></td><td>' + red(s.dim) + ' <span class="muted">(' + pct(s.dim, s.n) + ')</span></td></tr>'; }).join('') +
     '</table></div></div>';
-  return '<div class="mcards">' + cards + '</div>' + table;
+  return tonnageHtml(recs) + '<div class="mcards">' + cards + '</div>' + table;
+}
+/** Results by machine tonnage (boss, 2026-11-25): tonnage comes from block + MC (app Settings MC_TONNAGE). */
+function tonnageHtml(recs) {
+  const byT = {};
+  recs.forEach(r => { const t = r.tonnage || 'Unknown'; (byT[t] = byT[t] || []).push(r); });
+  const ts = Object.keys(byT).sort((a, b) => (parseFloat(a) || 1e9) - (parseFloat(b) || 1e9));
+  if (!ts.length) return '';
+  const red = v => v ? '<span class="ng">' + v + '</span>' : v;
+  const st = ts.map(t => Object.assign({ t, mcs: uniq(byT[t].map(r => r.machine)).sort(nat) }, stats(byT[t])));
+  return '<div class="card" style="margin-bottom:14px"><h2>By MC tonnage <small>REJ % = REJ pcs ÷ test cut qty</small></h2>' +
+    bars(st.map(x => ({ l: x.t, v: x.qty ? x.rej / x.qty : 0, c: x.rej ? 'var(--ng)' : 'var(--ok)', t: pct(x.rej, x.qty) + ' REJ <span class="muted">(' + x.rej + ' / ' + x.qty + ' pc)</span>' })), '#c81e1e') +
+    '<div class="tw" style="margin-top:10px"><table><tr>' + ['Tonnage', 'Machines', 'Test cuts', 'Test Cut Qty', 'ACC pcs', 'REJ pcs', 'Porosity NG', 'Unmill NG', 'Dim fail'].map(x => '<th>' + x + '</th>').join('') + '</tr>' +
+    st.map(x => '<tr><td><b>' + esc(x.t) + '</b></td><td>' + esc(x.mcs.map(mcTxt).join(', ')) + '</td><td>' + x.n + '</td><td>' + x.qty + '</td><td>' + x.acc + '</td><td>' + red(x.rej) +
+      ' <span class="muted">(' + pct(x.rej, x.qty) + ')</span></td><td>' + red(x.poro) + ' <span class="muted">(' + pct(x.poro, x.qty) + ')</span></td><td>' + red(x.unm) +
+      ' <span class="muted">(' + pct(x.unm, x.qty) + ')</span></td><td>' + red(x.dim) + ' <span class="muted">(' + pct(x.dim, x.n) + ')</span></td></tr>').join('') + '</table></div></div>';
 }
 </script>
 </body>
