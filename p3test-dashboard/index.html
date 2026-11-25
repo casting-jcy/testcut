@@ -309,7 +309,7 @@ function sorted(list) {
   const { k, dir } = D.sort;
   const key = {
     date: r => r.prodDate + (r.shift === 'Day' ? '0' : '1') + String(mi(r.code)).padStart(3, '0') + r.machine + r.cavity,
-    model: r => String(mi(r.code)).padStart(3, '0') + r.code, mc: r => r.machine + r.cavity, qty: r => String(Number(r.qty) || 0).padStart(6, '0'),
+    model: r => String(mi(r.code)).padStart(3, '0') + r.code, mc: r => r.machine + r.cavity, cav: r => r.cavity + ' ' + r.machine, qty: r => String(Number(r.qty) || 0).padStart(6, '0'),
     status: r => r.lotStatus, ng: r => String(rejPcs(r)).padStart(6, '0')
   }[k];
   return list.slice().sort((a, b) => dir * nat(key(a), key(b)));
@@ -330,14 +330,14 @@ function logsHtml() {
       opt('lShift', 'Day + Night', ['Day', 'Night'], f.shift) +
       opt('lScrap', 'All scrap status', ['Waiting to scrap', 'Done'], f.scrap || 'All') +
     '</div>' +
-    '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC / Cav') + '<th>Lot No / Basket No</th>' +
+    '<div class="tw"><table><tr>' + th('date', 'Date / Shift') + th('model', 'Model') + th('mc', 'MC') + th('cav', 'Cav') + '<th>Lot No / Basket No</th>' +
       th('qty', 'Qty') + '<th>Porosity</th><th>Unmill</th><th>Dimension</th>' + th('status', 'Status') + '<th>Scrap</th>' + th('ng', 'REJ pcs') +
       '<th>Verified</th><th>Operator</th><th></th></tr>' +
     (list.length ? list.slice(0, D.limit).map(r => {
       const ngTxt = (yn, n, locs) => yn === 'Yes' ? '<span class="ng">' + esc(n) + ' pc</span> @ ' + esc(locs) : '<span class="muted">–</span>';
       const nPh = (r.poroN || 0) + (r.unmillN || 0);
       return '<tr><td>' + fmtD(r.prodDate) + (r.late ? ' <span class="late">LATE</span>' : '') + '<div class="muted">' + esc(r.shift) + '</div></td>' +
-        '<td><b>' + esc(r.code) + '</b></td><td>' + esc(mcTxt(r.machine)) + '<div class="muted">' + esc(r.cavity) + '</div></td>' +
+        '<td><b>' + esc(r.code) + '</b></td><td>' + esc(mcTxt(r.machine)) + (r.tonnage ? '<div class="muted">' + esc(r.tonnage) + '</div>' : '') + '</td><td>' + esc(r.cavity) + '</td>' +
         '<td>' + esc(r.lotNo) + '</td><td>' + esc(r.qty) + '</td><td>' + ngTxt(r.poro, r.poroQty, r.poroLocs) + '</td>' +
         '<td>' + ngTxt(r.unmill, r.unmillQty, r.unmillLocs) + '</td>' +
         '<td>' + (r.dim === 'Fail' ? '<span class="ng">Fail</span>' + (r.dimPts ? ' @ ' + esc(r.dimPts) : '') : r.dim === 'Pass' ? 'Pass' : '<span class="muted">–</span>') + '</td>' +
